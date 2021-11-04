@@ -291,6 +291,29 @@ void pm_update_32k_rc_sleep_tick (unsigned int tick_32k, unsigned int tick)
 }
 
 /**
+ * @brief		Calculate the offset value based on the difference of 16M tick.
+ * @param[in]	offset_tick	- the 16M tick difference between the standard clock and the expected clock.
+ * @return		none.
+ */
+void pm_cal_32k_rc_offset (int offset_tick)
+{
+	pmcd.offset_cur = offset_tick;
+	int offset = offset_tick * (240 * 31) / pmcd.rc32;		//240ms / sleep_period
+	if (offset > 0x100)
+	{
+		offset = 0x100;
+	}
+	else if (offset < -0x100)
+	{
+		offset = -0x100;
+	}
+	pmcd.calib = 1;
+	pmcd.offset += (offset - pmcd.offset) >> 4;
+	pmcd.offset_dc += (offset_tick - pmcd.offset_dc) >> 3;
+	g_pm_tick_update_en = 0;
+}
+
+/**
  * @brief		32k rc calibration clock compensation.
  * @return		32k calibration value after compensation.
  */

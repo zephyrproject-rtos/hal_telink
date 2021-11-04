@@ -171,4 +171,10 @@ static inline void aes_clr_irq_status(aes_irq_e status)
 	reg_aes_clr_irq_status = (status);
 }
 
+/**
+ * @brief     This function is a getter for aes_data_buff
+ * @return    pointer to aes_data_buff.
+ */
+unsigned int * aes_data_buff_ptr_get(void);
+
 #endif /* _AES_H_ */

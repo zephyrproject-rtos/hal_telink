@@ -86,6 +86,7 @@ rf_mode_e   g_rfmode;
 /**********************************************************************************************************************
  *                                         global function implementation                                             *
  *********************************************************************************************************************/
+
 /**
  * @brief     This function serves to initiate information of RF.
  * @return	   none.
@@ -180,6 +181,70 @@ void rf_set_zigbee_250K_mode(void)
 	write_reg8(0x140c4c,0x4c);//RX:acc_len modem.
 
 	g_rfmode = RF_MODE_ZIGBEE_250K;
+}
+
+/**
+ * @brief     This function serves to  set ble_1M  mode of RF.
+ * @return	  none.
+ */
+void rf_set_ble_1M_mode(void)
+{
+	write_reg8(0x140e3d,0x61);//ble:bw_code.
+	write_reg8(0x140e20,0x16);//sc_code.
+	write_reg8(0x140e21,0x0a);//if_freq,IF = 1Mhz,BW = 1Mhz.
+	write_reg8(0x140e22,0x20);//HPMC_EXP_DIFF_COUNT_L.
+	write_reg8(0x140e23,0x23);//HPMC_EXP_DIFF_COUNT_H.
+	write_reg8(0x140e3f,0x00);//250k modulation index:telink add rx for 250k/500k.
+	write_reg8(0x140c3f,0x00);//LOW_RATE_EN bit<1>:1 enable bit<2>:0 250k.
+	write_reg8(0x140c20,0x84);// script cc.
+
+	write_reg8(0x140c22,0x00);//modem:BLE_MODE_TX,2MBPS.
+	write_reg8(0x140c4e,0x1e);//ble sync thre:To modem.
+	write_reg8(0x140c4d,0x01);//r_rxchn_en_i:To modem.
+	write_reg8(0x140c21,0x00);//modem:ZIGBEE_MODE:01.
+	write_reg8(0x140c23,0x00);//modem:ZIGBEE_MODE_TX.
+	write_reg8(0x140c26,0x00);//modem:sync rst sel,for zigbee access code sync.
+	write_reg8(0x140c2a,0x10);//modem:disable MSK.
+	write_reg8(0x140c3d,0x00);//modem:zb_sfd_frm_ll.
+	write_reg8(0x140c2c,0x38);//modem:zb_dis_rst_pdet_isfd.
+	write_reg8(0x140c36,0xb7);//LR_NUM_GEAR_L.
+	write_reg8(0x140c37,0x0e);//LR_NUM_GEAR_H.
+	write_reg8(0x140c38,0xc4);//LR_TIM_EDGE_DEV.
+	write_reg8(0x140c39,0x71);//LR_TIM_REC_CFG_1.
+	write_reg8(0x140c73,0x01);//TOT_DEV_RST.
+
+#if RF_RX_SHORT_MODE_EN
+	write_reg8(0x140c79,0x38);//RX_DIS_PDET_BLANK.
+#else
+	write_reg8(0x140c79,0x08);//RX_DIS_PDET_BLANK.
+#endif
+	write_reg8(0x140c9a,0x00);//tx_tp_align.
+	write_reg8(0x140cc2,0x39);//grx_0.
+	write_reg8(0x140cc3,0x4b);//grx_1.
+	write_reg8(0x140cc4,0x56);//grx_2.
+	write_reg8(0x140cc5,0x62);//grx_3.
+	write_reg8(0x140cc6,0x6e);//grx_4.
+	write_reg8(0x140cc7,0x79);//grx_5.
+
+	write_reg8(0x140800,0x1f);//tx_mode.
+	write_reg8(0x140801,0x08);//PN.
+	write_reg8(0x140802,0x46);//preamble len 0x46 for ble confirmed by biao.li.20200828.
+	write_reg8(0x140803,0x44);//bit<0:1>private mode control. bit<2:3> tx mode.
+	write_reg8(0x140804,0xf5);//bit<4>mode:1->1m;bit<0:3>:ble head.
+	write_reg8(0x140805,0x04);//lr mode bit<4:5> 0:off,3:125k,2:500k.
+
+	write_reg8(0x140821,0xa1);//rx packet len 0 enable.
+	write_reg8(0x140822,0x00);//rxchn_man_en.
+	write_reg8(0x140c4c,0x4c);//RX:acc_len modem.
+
+	write_reg32(0x140808,0x00000000);
+	write_reg8(0x140830,0x36);
+	write_reg8(0x140a06,0x00);
+	write_reg8(0x140a0c,0x50);
+	write_reg8(0x140a0e,0x00);
+	write_reg8(0x140a10,0x00);
+
+	g_rfmode = RF_MODE_BLE_1M;
 }
 
 /**
@@ -280,6 +345,36 @@ void rf_set_rx_dma(unsigned char *buff,unsigned char wptr_mask,unsigned short fi
 volatile unsigned char  g_single_tong_freqoffset = 0;//for eliminate single carrier frequency offset.
 
 /**
+ * @brief   	This function serves to set RF baseband channel.This function is suitable for ble open PN mode.
+ * @param[in]   chn_num  - Bluetooth channel set according to Bluetooth protocol standard.
+ * @return  	none.
+ */
+
+
+void rf_set_ble_chn (signed char chn_num)
+{
+    write_reg8 (0x14080d, chn_num);
+	if (chn_num < 11)
+		chn_num += 2;
+	else if (chn_num < 37)
+		chn_num += 3;
+	else if (chn_num == 37)
+		chn_num = 1;
+	else if (chn_num == 38)
+		chn_num = 13;
+	else if	(chn_num == 39)
+		chn_num = 40;
+	else if	(chn_num < 51)
+		chn_num = chn_num;
+	else if(chn_num <= 61)
+		chn_num = -61 + chn_num;
+
+	chn_num = chn_num << 1;
+	rf_set_chn(chn_num);
+
+}
+
+/**
  * @brief   	This function serves to set rf channel for all mode.The actual channel set by this function is 2400+chn.
  * @param[in]   chn   - That you want to set the channel as 2400+chn.
  * @return  	none.
@@ -325,7 +420,7 @@ void rf_set_chn(signed char chn)
 	write_reg8(0x140e44,  (read_reg8(0x140e44) | 0x01 ));
 	write_reg8(0x140e44,  (read_reg8(0x140e44) & 0x01) | freq_low << 1);
 	write_reg8(0x140e45,  (read_reg8(0x140e45) & 0xc0) | freq_high);
-	write_reg8(0x140e29,  (read_reg8(0x140e29) & 0x3f) | (ctrim<<5) );  //FE_CTRIM
+	write_reg8(0x140e29,  (read_reg8(0x140e29) & 0x1f) | (ctrim<<5) );  //FE_CTRIM
 }
 
 /**
@@ -395,3 +490,106 @@ void rf_set_power_level(rf_power_level_e level)
 	reg_rf_mode_cfg_txrx_1 = ((reg_rf_mode_cfg_txrx_1 & 0xe0) | ((value>>1)&0x1f));
 }
 
+/**
+ * @brief	  	This function serves to start tx of auto mode. In this mode,
+ *				RF module stays in tx status until a packet is sent or it fails to sent packet when timeout expires.
+ *				Timeout duration is set by the parameter "tick".
+ *				The address to store send data is set by the function "addr".
+ * @param[in]	addr   - The address to store send data.
+ * @param[in]	tick   - It indicates timeout duration in Rx status.Max value: 0xffffff (16777215).
+ * @return	 	none.
+ */
+void rf_start_btx (void* addr, unsigned int tick)
+{
+	write_reg32(0x80140a18, tick);
+	reg_rf_ll_ctrl3 |= FLD_RF_R_CMD_SCHDULE_EN;	// Enable cmd_schedule mode.
+	dma_set_src_address(DMA0,convert_ram_addr_cpu2bus(addr));
+	write_reg8 (0x80140a00, 0x81);						// ble tx.
+}
+
+/**
+ * @brief	  	This function serves to start Rx of auto mode. In this mode,
+ *				RF module stays in Rx status until a packet is received or it fails to receive packet when timeout expires.
+ *				Timeout duration is set by the parameter "tick".
+ *				The address to store received data is set by the function "addr".
+ * @param[in]	addr   - The address to store received data.
+ * @param[in]	tick   - It indicates timeout duration in Rx status.Max value: 0xffffff (16777215).
+ * @return	 	none
+ */
+void rf_start_brx  (void* addr, unsigned int tick)
+{
+	write_reg32 (0x80140a28, 0x0fffffff);
+	write_reg32(0x80140a18, tick);
+	reg_rf_ll_ctrl3 |= FLD_RF_R_CMD_SCHDULE_EN;	// Enable cmd_schedule mode.
+	dma_set_src_address(DMA0,convert_ram_addr_cpu2bus(addr));
+	write_reg8 (0x80140a00, 0x82);// ble rx.
+}
+
+/**
+ * @brief     	This function serves to RF trigger stx2rx.
+ * @param[in] 	addr  - DMA tx buffer.
+ * @param[in] 	tick  - Trigger tx send packet after tick delay.
+ * @return	    none.
+ */
+void rf_start_stx2rx  (void* addr, unsigned int tick)
+{
+	dma_set_src_address(DMA0,convert_ram_addr_cpu2bus(addr));
+	write_reg32(0x80140a18, tick);
+	reg_rf_ll_ctrl3 |= FLD_RF_R_CMD_SCHDULE_EN;	// Enable cmd_schedule mode.
+	write_reg8  (0x80140a00, 0x87);	// single tx2rx.
+}
+
+/**
+ * @brief     	This function serves to RF trigger stx.
+ * @param[in] 	addr  - DMA tx buffer.
+ * @param[in] 	tick  - Trigger tx after tick delay.
+ * @return	   	none.
+ */
+void rf_start_stx  (void* addr,  unsigned int tick)
+{
+	dma_set_src_address(DMA0,convert_ram_addr_cpu2bus(addr));
+	reg_rf_ll_cmd_schedule = tick;
+	reg_rf_ll_ctrl3 |= FLD_RF_R_CMD_SCHDULE_EN;	// Enable cmd_schedule mode.
+	reg_rf_ll_cmd = 0x85;
+}
+
+/**
+ * @brief      This function serves to reset baseband
+ * @return     none
+ */
+void rf_baseband_reset(void)
+{
+	reg_rst3 &= (~FLD_RST3_ZB);      		  // reset baseband
+	reg_rst3 |= (FLD_RST3_ZB);				  // clr baseband
+}
+
+/**
+ * @brief   	This function serves to set RF power through select the level index.
+ * @param[in]   idx 	 - The index of power level which you want to set.
+ * @return  	none.
+ */
+void rf_set_power_level_index(rf_power_level_index_e idx)
+{
+	unsigned char value;
+	unsigned char level = 0;
+
+	if(idx < sizeof(rf_power_Level_list)/sizeof(rf_power_Level_list[0]))
+	{
+		level = rf_power_Level_list[idx];
+	}
+
+	if(level&BIT(7))
+	{
+		reg_rf_mode_cfg_tx3_0 |= FLD_RF_MODE_VANT_TX_BLE;
+	}
+	else
+	{
+		reg_rf_mode_cfg_tx3_0 &= ~FLD_RF_MODE_VANT_TX_BLE;
+	}
+
+	value = (unsigned char)(level & 0x3F);
+
+	reg_rf_mode_cfg_txrx_0 = ((reg_rf_mode_cfg_txrx_0 & 0x7f) | ((value&0x01)<<7));
+	reg_rf_mode_cfg_txrx_1 = ((reg_rf_mode_cfg_txrx_1 & 0xe0) | ((value>>1)&0x1f));
+
+}
