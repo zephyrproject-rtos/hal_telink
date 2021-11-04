@@ -672,6 +672,11 @@ void rf_set_ble_2M_NO_PN_mode(void);
  */
 void rf_set_ble_500K_mode(void);
 
+/**
+ * @brief     This function serves to set ble_1M  mode of RF.
+ * @return	  none.
+ */
+void rf_set_ble_1M_mode(void);
 
 /**
  * @brief     This function serves to  set zigbee_125K  mode of RF.
@@ -1046,6 +1051,18 @@ _attribute_ram_code_sec_noinline_ void rf_start_brx  (void* addr, unsigned int t
  */
 _attribute_ram_code_sec_noinline_ void rf_start_btx (void* addr, unsigned int tick);
 
+/**
+ * @brief   	This function serves to set RF power through select the level index.
+ * @param[in]   idx 	 - The index of power level which you want to set.
+ * @return  	none.
+ */
+void rf_set_power_level_index(rf_power_level_index_e idx);
 
+/**
+ * @brief		This function do radio baseband reset
+ * @param 		none
+ * @return		none
+ */
+void rf_baseband_reset(void);
 
 #endif

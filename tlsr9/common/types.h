@@ -51,17 +51,24 @@
 typedef unsigned char u8 ;
 typedef unsigned short u16 ;
 typedef unsigned int u32 ;
+typedef unsigned long long u64 ;
 typedef signed char s8 ;
 typedef signed short s16 ;
 typedef signed int s32 ;
+typedef signed long long s64 ;
+
+#ifndef _Bool
 typedef enum
 {
 	false,
 	true
 }bool;
+#endif
 
 #ifdef __GNUC__
+#ifndef __WCHAR_TYPE__
 typedef	unsigned short	wchar_t;
+#endif
 #endif
 
 

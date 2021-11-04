@@ -61,7 +61,7 @@
 /**********************************************************************************************************************
  *                                              global variable                                                       *
  *********************************************************************************************************************/
-_attribute_aes_data_sec_ unsigned int aes_data_buff[8];
+_attribute_aes_data_sec_ static unsigned int aes_data_buff[8];
 unsigned int aes_base_addr = 0xc0000000;
 /**********************************************************************************************************************
  *                                              local variable                                                     *
@@ -175,4 +175,14 @@ static inline void aes_wait_done(void)
 {
 	while(FLD_AES_START == (reg_aes_mode & FLD_AES_START));
 }
+
+/**
+ * @brief     This function is a getter for aes_data_buff
+ * @return    pointer to aes_data_buff.
+ */
+unsigned int * aes_data_buff_ptr_get(void)
+{
+    return aes_data_buff;
+}
+
 
