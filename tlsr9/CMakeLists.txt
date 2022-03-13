@@ -35,3 +35,7 @@ zephyr_sources_ifdef(CONFIG_IEEE802154_TELINK_B91 drivers/B91/rf.c)
 
 # Entropy driver reference sources
 zephyr_sources_ifdef(CONFIG_ENTROPY_TELINK_B91_TRNG drivers/B91/trng.c)
+
+# soc.c HW crypto sources
+zephyr_sources(drivers/B91/aes.c)
+zephyr_sources(drivers/B91/pke.c)
