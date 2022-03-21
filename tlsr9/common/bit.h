@@ -43,7 +43,9 @@
 #ifndef BIT_H_
 #define BIT_H_
 
+#ifndef BIT
 #define BIT(n)                  		( 1<<(n))
+#endif
 #define BIT_MASK_LEN(len)       		(BIT(len)-1)
 #define BIT_RNG(s, e)  					(BIT_MASK_LEN((e)-(s)+1) << (s))
 
