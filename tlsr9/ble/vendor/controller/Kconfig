@@ -7,7 +7,7 @@ menu "B91 BLE Controller"
 
 config B91_BLE_CTRL_MAC_FLASH_ADDR
 	hex "MAC Flash address"
-	default FFFF0
+	default 0xFFFF0
 	help
 	  The address in Flash memory for MAC address storage.
 
