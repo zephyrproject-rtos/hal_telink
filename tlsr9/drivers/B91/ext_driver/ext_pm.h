@@ -19,16 +19,50 @@
 #ifndef DRIVERS_B91_DRIVER_EXT_EXT_PM_H_
 #define DRIVERS_B91_DRIVER_EXT_EXT_PM_H_
 
+#include <zephyr.h>
+#undef irq_enable
+#undef irq_disable
+#undef ARRAY_SIZE
+
 #include "../pm.h"
 #include "types.h"
+#include "ext_misc.h"
 
 #ifndef	PM_32k_RC_CALIBRATION_ALGORITHM_EN
 #define PM_32k_RC_CALIBRATION_ALGORITHM_EN	1
 #endif
 
+#define SYS_NEED_REINIT_EXT32K			    BIT(1)
+#define WAKEUP_STATUS_TIMER_CORE     	    ( WAKEUP_STATUS_TIMER | WAKEUP_STATUS_CORE)
+#define WAKEUP_STATUS_TIMER_PAD		        ( WAKEUP_STATUS_TIMER | WAKEUP_STATUS_PAD)
 
+/**
+ * @brief analog register below can store infomation when MCU in deepsleep mode
+ * 	      store your information in these ana_regs before deepsleep by calling analog_write function
+ * 	      when MCU wakeup from deepsleep, read the information by by calling analog_read function
+ * 	      Reset these analog registers only by power cycle
+ */
+#define DEEP_ANA_REG0                       0x39 //initial value =0x00
+#define DEEP_ANA_REG1                       0x3a //initial value =0x00
+#define DEEP_ANA_REG2                       0x3b //initial value =0x00
+#define DEEP_ANA_REG3                      	0x3c //initial value =0x00
+#define DEEP_ANA_REG4                       0x3d //initial value =0x00
+#define DEEP_ANA_REG5                       0x3e //initial value =0x00
+#define DEEP_ANA_REG6                       0x3f //initial value =0x0f
 
+/**
+ * @brief these analog register can store data in deepsleep mode or deepsleep with SRAM retention mode.
+ * 	      Reset these analog registers by watchdog, chip reset, RESET Pin, power cycle
+ */
 
+#define DEEP_ANA_REG7                       0x38 //initial value =0xff
+
+//ana3e system used, user can not use
+#define SYS_DEEP_ANA_REG 					PM_ANA_REG_POWER_ON_CLR_BUF0
+
+#define cpu_set_gpio_wakeup					pm_set_gpio_wakeup
+
+#define PM_MIN_SLEEP_US						1500  /* Eagle chip specific */
 
 
 /**
@@ -79,38 +113,28 @@ typedef struct{
 
 extern  _attribute_aligned_(4) misc_para_t 				blt_miscParam;
 
-#define SYS_NEED_REINIT_EXT32K			    BIT(1)
-#define WAKEUP_STATUS_TIMER_CORE     	    ( WAKEUP_STATUS_TIMER | WAKEUP_STATUS_CORE)
-#define WAKEUP_STATUS_TIMER_PAD		        ( WAKEUP_STATUS_TIMER | WAKEUP_STATUS_PAD)
+/********************************** Internal APIs (not for user) ***************************************************/
+extern  unsigned char 		    tl_24mrc_cal;
+extern 	unsigned int 			g_pm_tick_32k_calib;
+extern  unsigned int 			g_pm_tick_cur;
+extern  unsigned int 			g_pm_tick_32k_cur;
+extern  unsigned char       	g_pm_long_suspend;
+extern  unsigned int 			g_pm_multi_addr;
 
+extern	unsigned int 			g_sleep_32k_rc_cnt;
+extern	unsigned int 			g_sleep_stimer_tick;
 
+extern unsigned int	ota_program_bootAddr;
+extern unsigned int	ota_program_offset;
+/******************************** end of Internal APIs (not for user) **********************************************/
 
-void bls_pm_registerFuncBeforeSuspend (suspend_handler_t func );
 
 /**
- * @brief analog register below can store infomation when MCU in deepsleep mode
- * 	      store your information in these ana_regs before deepsleep by calling analog_write function
- * 	      when MCU wakeup from deepsleep, read the information by by calling analog_read function
- * 	      Reset these analog registers only by power cycle
+ * @brief      This function sets pm suspend handler.
+ * @param[in]  func - handler function.
+ * @return     none.
  */
-#define DEEP_ANA_REG0                       0x39 //initial value =0x00
-#define DEEP_ANA_REG1                       0x3a //initial value =0x00
-#define DEEP_ANA_REG2                       0x3b //initial value =0x00
-#define DEEP_ANA_REG3                      	0x3c //initial value =0x00
-#define DEEP_ANA_REG4                       0x3d //initial value =0x00
-#define DEEP_ANA_REG5                       0x3e //initial value =0x00
-#define DEEP_ANA_REG6                       0x3f //initial value =0x0f
-
-/**
- * @brief these analog register can store data in deepsleep mode or deepsleep with SRAM retention mode.
- * 	      Reset these analog registers by watchdog, chip reset, RESET Pin, power cycle
- */
-
-#define DEEP_ANA_REG7                       0x38 //initial value =0xff
-
-//ana3e system used, user can not use
-#define SYS_DEEP_ANA_REG 					PM_ANA_REG_POWER_ON_CLR_BUF0
-
+void bls_pm_registerFuncBeforeSuspend(suspend_handler_t func);
 
 /**
  * @brief      This function serves to set the working mode of MCU based on 32k crystal,e.g. suspend mode, deepsleep mode, deepsleep with SRAM retention mode and shutdown mode.
@@ -130,16 +154,18 @@ int  cpu_sleep_wakeup_32k_rc(SleepMode_TypeDef sleep_mode,  SleepWakeupSrc_TypeD
  */
 int  cpu_sleep_wakeup_32k_xtal(SleepMode_TypeDef sleep_mode,  SleepWakeupSrc_TypeDef wakeup_src, unsigned int  wakeup_tick);
 
-
+/**
+ * @brief   This function serves to start sleep mode.
+ * @param   none.
+ * @return  none.
+ */
 void pm_sleep_start(void);
-
 
 /**
  * @brief   This function serves to reboot chip.
  * @param   none.
  * @return  none.
  */
-
 void start_reboot(void);
 
 /**
@@ -159,11 +185,29 @@ unsigned int pm_tim_recover_32k_xtal(unsigned int now_tick_32k);
 /**
  * @brief   This function serves to get the 32k tick.
  * @param   none
- * @return  tick of 32k .
+ * @return  tick of 32k.
  */
 extern unsigned int get_32k_tick(void);
 
+/**
+ * @brief   This function serves to get the 32k digital tick.
+ * @param   none
+ * @return  digital tick of 32k.
+ */
 unsigned int clock_get_digital_32k_tick(void);
+
+/**
+ * @brief      This function serves to determine whether external wakeup source to be used
+ * @param[in]  none.
+ * @return     none.
+ */
+static inline void blc_pm_set_extern_wakeup_recover(cpu_pm_handler_t wakeup, pm_tim_recover_handler_t recover)
+{
+	cpu_sleep_wakeup = wakeup;
+	pm_tim_recover = recover;
+
+	blt_miscParam.pm_enter_en = 1;
+}
 
 /**
  * @brief      This function serves to determine whether wake up source is internal 32k RC.
@@ -178,6 +222,11 @@ static inline void blc_pm_select_internal_32k_crystal(void)
 	blt_miscParam.pm_enter_en 	= 1; // allow enter pm, 32k rc does not need to wait for 32k clk to be stable
 }
 
+/**
+ * @brief      This function waits for 32K oscillator frequency stabilization.
+ * @param[in]  none.
+ * @return     none.
+ */
 extern void check_32k_clk_stable(void);
 
 /**
@@ -193,9 +242,6 @@ static inline void blc_pm_select_external_32k_crystal(void)
 	pm_get_32k_tick 		= get_32k_tick;
 	blt_miscParam.pad32k_en 	= 1; // set '1': 32k clk src use external 32k crystal
 }
-
-
-
 
 /**
  * @brief      This function servers to wake up the cpu from sleep mode.
@@ -236,30 +282,9 @@ static inline int pm_get_mcu_status(void)
 	return g_pm_status_info.mcu_status;
 }
 
-#define cpu_set_gpio_wakeup				pm_set_gpio_wakeup
-
-
 static inline unsigned int pm_get_latest_offset_cal_time(void)
 {
 	return pmcd.offset_cal_tick;
 }
-
-/**********************************  Internal APIs (not for user)***************************************************/
-extern  unsigned char 		    tl_24mrc_cal;
-extern 	unsigned int 			g_pm_tick_32k_calib;
-extern  unsigned int 			g_pm_tick_cur;
-extern  unsigned int 			g_pm_tick_32k_cur;
-extern  unsigned char       	g_pm_long_suspend;
-extern  unsigned int 			g_pm_multi_addr;
-
-extern	unsigned int 			g_sleep_32k_rc_cnt;
-extern	unsigned int 			g_sleep_stimer_tick;
-
-extern unsigned int	ota_program_bootAddr;
-extern unsigned int	ota_program_offset;
-
-
-#define PM_MIN_SLEEP_US			1500  //eagle
-
 
 #endif /* DRIVERS_B91_DRIVER_EXT_EXT_PM_H_ */

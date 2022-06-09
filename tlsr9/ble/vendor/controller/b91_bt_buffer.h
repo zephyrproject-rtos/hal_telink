@@ -19,48 +19,109 @@
 #ifndef B91_BT_BUFFER_H_
 #define B91_BT_BUFFER_H_
 
-/********************* ACL connection LinkLayer TX & RX data FIFO allocation, Begin *******************************/
-#define ACL_CONN_MAX_RX_OCTETS			251
-#define ACL_SLAVE_MAX_TX_OCTETS			251
-#define ACL_MASTER_MAX_TX_OCTETS		251
+#include "stack/ble/ble.h"
+#include "zephyr/bluetooth/buf.h"
 
-/**
- * @brief	LE_ACL_Data_Packet_Length, refer to BLE SPEC "7.8.2 LE Read Buffer Size command"
- * usage limitation:
- * 1. only used for BLE controller project
- * 2. must be an integer multiple of 4, such as 32,80,200...
- * 3. must greater than maximum of ACL_SLAVE_MAX_TX_OCTETS, ACL_MASTER_MAX_TX_OCTETS
- * 4. can not exceed 252(for maximum tx_octets when DLE used)
- */
-#define LE_ACL_DATA_PACKET_LENGTH		(252)
+#define BT_BUF_TX_SIZE                                                                             \
+	MAX(BT_BUF_CMD_SIZE(CONFIG_BT_BUF_CMD_TX_SIZE), BT_BUF_ACL_SIZE(CONFIG_BT_BUF_ACL_TX_SIZE))
 
-#define ACL_RX_FIFO_SIZE		    CAL_LL_ACL_RX_FIFO_SIZE(ACL_CONN_MAX_RX_OCTETS)
-#define ACL_RX_FIFO_NUM			    8
+#define ACL_CONN_MAX_RX_OCTETS (BT_BUF_RX_SIZE > 251 ? 251 : BT_BUF_RX_SIZE)
+#define ACL_SLAVE_MAX_TX_OCTETS (CONFIG_BT_BUF_ACL_TX_SIZE > 251 ? 251 : CONFIG_BT_BUF_ACL_TX_SIZE)
+#define ACL_MASTER_MAX_TX_OCTETS (CONFIG_BT_BUF_ACL_TX_SIZE > 251 ? 251 : CONFIG_BT_BUF_ACL_TX_SIZE)
 
-#define ACL_SLAVE_TX_FIFO_SIZE		CAL_LL_ACL_TX_FIFO_SIZE(ACL_SLAVE_MAX_TX_OCTETS)
-#define ACL_SLAVE_TX_FIFO_NUM		9
+/* Macroses to align values to specific size */
+#define ALIGN_2 1
+#define ALIGN_4 2
+#define ALIGN_8 3
+#define ALIGN_16 4
+#define ALIGN(x, order)                                                                            \
+	(((x) % (1 << (order))) == 0 ? (x) : ((((x) >> (order)) << (order)) + (1 << order)))
 
-#define ACL_MASTER_TX_FIFO_SIZE		CAL_LL_ACL_TX_FIFO_SIZE(ACL_MASTER_MAX_TX_OCTETS)
-#define ACL_MASTER_TX_FIFO_NUM		9
+/* Macro to find next power of two value */
+/* Found Here: https://lists.freebsd.org/pipermail/freebsd-current/2007-February/069093.html */
+#define NPOT2(x) ((x) | ((x) >> 1))
+#define NPOT4(x) (NPOT2(x) | (NPOT2(x) >> 2))
+#define NPOT8(x) (NPOT4(x) | (NPOT4(x) >> 4))
+#define NPOT16(x) (NPOT8(x) | (NPOT8(x) >> 8))
+#define NPOT32(x) (NPOT16(x) | (NPOT16(x) >> 16))
+#define NEXT_POWER_OF_2(x) (NPOT32(x - 1) + 1)
 
-extern	u8	app_acl_rxfifo[];
-extern	u8	app_acl_mstTxfifo[];
-extern	u8	app_acl_slvTxfifo[];
+/* Macro to calculate ACL TX master/slave buffer number. */
+/* According to Telink implementation, shall be 9, 17 or 33 */
+#define CAL_LL_ACL_BUF_NUM(x) (x <= 9 ? 9 : x <= 17 ? 17 : 33)
 
-/***************************** HCI TX & RX data FIFO allocation, Begin *********************************************/
-#define HCI_MAX_TX_SIZE				251
+/*
+    TX from host CMD or ACL buffer, RX to Contorller HCI buffer
+    According to Telink implementatios, the buffer shall be alligned to 16.
+*/
+#define HCI_RX_FIFO_SIZE HCI_FIFO_SIZE(BT_BUF_TX_SIZE)
 
-#define HCI_TX_FIFO_SIZE			HCI_FIFO_SIZE(HCI_MAX_TX_SIZE)
-#define HCI_TX_FIFO_NUM				8
+/*
+    According to Telink implementation shall number of buffers shall be power of 2
+*/
+#define HCI_RX_FIFO_NUM NEXT_POWER_OF_2(MAX(CONFIG_BT_BUF_CMD_TX_COUNT, CONFIG_BT_BUF_ACL_TX_COUNT))
 
-#define HCI_RX_FIFO_SIZE			HCI_FIFO_SIZE(ACL_CONN_MAX_RX_OCTETS)
-#define HCI_RX_FIFO_NUM				8
+/*
+    TX from controller, RX to Host
+    According to Telink implementatios, the buffer shall be alligned to 4.
+*/
+#define HCI_TX_FIFO_SIZE HCI_FIFO_SIZE(BT_BUF_RX_SIZE)
 
-#define HCI_RX_ACL_FIFO_SIZE		CALCULATE_HCI_ACL_DATA_FIFO_SIZE(LE_ACL_DATA_PACKET_LENGTH)
-#define HCI_RX_ACL_FIFO_NUM			8
+/*
+    According to Telink implementation shall number of buffers shall be power of 2
+*/
+#define HCI_TX_FIFO_NUM NEXT_POWER_OF_2(BT_BUF_RX_COUNT)
 
-extern	u8	app_hci_rxfifo[];
-extern	u8	app_hci_txfifo[];
-extern	u8	app_hci_rxAclfifo[];
+/*
+    Intermediate ACL buffer that takes data from HCI RX and pass it to ACL TX
+    According to Telink implementatios, the buffer shall be alligned to 4.
+*/
+#define HCI_RX_ACL_FIFO_SIZE ALIGN(BT_BUF_ACL_SIZE(CONFIG_BT_BUF_ACL_TX_SIZE), ALIGN_4)
+
+/*
+    According to Telink implementation shall number of buffers shall be power of 2
+*/
+#define HCI_RX_ACL_FIFO_NUM NEXT_POWER_OF_2(CONFIG_BT_BUF_ACL_TX_COUNT)
+
+/*
+    Data from radio to RX ACL buffer
+    According to Telink implementatios, the buffer shall be alligned to 16.
+*/
+#define ACL_RX_FIFO_SIZE CAL_LL_ACL_RX_FIFO_SIZE(BT_BUF_RX_SIZE)
+
+/*
+    Number of ACL RX buffers. Shall be power of 2
+*/
+#define ACL_RX_FIFO_NUM NEXT_POWER_OF_2(BT_BUF_RX_COUNT)
+
+/*
+    Data from ACL TX to radio
+    According to Telink implementatios, the buffer shall be alligned to 16.
+*/
+#define ACL_SLAVE_TX_FIFO_SIZE CAL_LL_ACL_TX_FIFO_SIZE(CONFIG_BT_BUF_ACL_TX_SIZE)
+
+/*
+    Number of ACL TX buffers. Shall be 9, 17, 33
+*/
+#define ACL_SLAVE_TX_FIFO_NUM CAL_LL_ACL_BUF_NUM(CONFIG_BT_BUF_ACL_TX_COUNT)
+
+/*
+    Data from ACL TX to radio
+    According to Telink implementatios, the buffer shall be alligned to 16.
+*/
+#define ACL_MASTER_TX_FIFO_SIZE CAL_LL_ACL_TX_FIFO_SIZE(CONFIG_BT_BUF_ACL_TX_SIZE)
+
+/*
+    Number of ACL TX buffers. Shall be 9, 17, 33
+*/
+#define ACL_MASTER_TX_FIFO_NUM CAL_LL_ACL_BUF_NUM(CONFIG_BT_BUF_ACL_TX_COUNT)
+
+extern u8 app_acl_rxfifo[];
+extern u8 app_acl_mstTxfifo[];
+extern u8 app_acl_slvTxfifo[];
+
+extern u8 app_hci_rxfifo[];
+extern u8 app_hci_txfifo[];
+extern u8 app_hci_rxAclfifo[];
 
 #endif /* B91_BT_BUFFER_H_ */

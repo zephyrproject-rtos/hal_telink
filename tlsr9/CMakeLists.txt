@@ -12,7 +12,9 @@ zephyr_include_directories(drivers/B91/reg_include)
 zephyr_include_directories(drivers/B91)
 
 # soc.c referance sources
-zephyr_library_sources_ifndef(CONFIG_BT_B91 drivers/B91/sys.c)
+if (NOT CONFIG_PM AND NOT CONFIG_BT_B91)
+zephyr_library_sources(drivers/B91/sys.c)
+endif() # no PM and no BLE external dependency
 zephyr_library_sources(drivers/B91/pm.c)
 zephyr_library_sources(drivers/B91/clock.c)
 zephyr_library_sources(drivers/B91/analog.c)
@@ -42,6 +44,9 @@ zephyr_library_sources_ifdef(CONFIG_ENTROPY_TELINK_B91_TRNG drivers/B91/trng.c)
 zephyr_library_sources_ifdef(CONFIG_ADC_TELINK_B91 drivers/B91/adc.c)
 zephyr_library_sources_ifdef(CONFIG_ADC_TELINK_B91 drivers/B91/gpio.c)
 
+#PM driver dependency
+zephyr_library_sources_ifdef(CONFIG_PM drivers/B91/stimer.c)
+
 # BLE reference sources
 if (CONFIG_BT_B91)
 
@@ -63,10 +68,19 @@ zephyr_library_sources(
 	ble/vendor/controller/b91_bt_buffer.c
 )
 
+endif() # CONFIG_BT_B91
+
+# PM and BLE external dependency
+if(CONFIG_PM OR CONFIG_BT_B91)
+
 if(${ZEPHYR_TOOLCHAIN_VARIANT} STREQUAL "zephyr")
 	zephyr_link_libraries(${CMAKE_CURRENT_SOURCE_DIR}/ble/proj_lib/lib/liblt_9518_zephyr.a)
 else()
 	zephyr_link_libraries(${CMAKE_CURRENT_SOURCE_DIR}/ble/proj_lib/lib/liblt_9518.a)
 endif()
 
-endif() # CONFIG_BT_B91
+if(CONFIG_PM)
+zephyr_ld_options(-mtune=rocket)
+endif() # PM
+
+endif() # PM or BLE external dependency
