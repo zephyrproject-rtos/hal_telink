@@ -38,6 +38,10 @@ zephyr_library_sources_ifdef(CONFIG_IEEE802154_TELINK_B91 drivers/B91/rf.c)
 # Entropy driver reference sources
 zephyr_library_sources_ifdef(CONFIG_ENTROPY_TELINK_B91_TRNG drivers/B91/trng.c)
 
+# ADC driver reference sources
+zephyr_library_sources_ifdef(CONFIG_ADC_TELINK_B91 drivers/B91/adc.c)
+zephyr_library_sources_ifdef(CONFIG_ADC_TELINK_B91 drivers/B91/gpio.c)
+
 # BLE reference sources
 if (CONFIG_BT_B91)
 
