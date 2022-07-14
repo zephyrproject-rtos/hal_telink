@@ -21,43 +21,45 @@
 #undef irq_disable
 #undef ARRAY_SIZE
 
-#include "plic.h"
-#include "compiler.h"
 #include "b91_bt.h"
 #include "b91_bt_init.h"
+#include "compiler.h"
+#include "plic.h"
 #include "stack/ble/controller/ble_controller.h"
 
-
 /* Module defines */
-#define BLE_THREAD_STACK_SIZE           CONFIG_B91_BLE_CTRL_THREAD_STACK_SIZE
-#define BLE_THREAD_PRIORITY             CONFIG_B91_BLE_CTRL_THREAD_PRIORITY
-#define BLE_THREAD_PERIOD_MS            CONFIG_B91_BLE_CTRL_THREAD_PERIOD_MS
+#define BLE_THREAD_STACK_SIZE CONFIG_B91_BLE_CTRL_THREAD_STACK_SIZE
+#define BLE_THREAD_PRIORITY CONFIG_B91_BLE_CTRL_THREAD_PRIORITY
+#define BLE_THREAD_PERIOD_MS CONFIG_B91_BLE_CTRL_THREAD_PERIOD_MS
 
-#define BYTES_TO_UINT16(n, p)           {n = ((u16)(p)[0] + ((u16)(p)[1]<<8));}
-#define BSTREAM_TO_UINT16(n, p)         {BYTES_TO_UINT16(n, p); p += 2;}
+#define BYTES_TO_UINT16(n, p)                                                                      \
+	{                                                                                          \
+		n = ((u16)(p)[0] + ((u16)(p)[1] << 8));                                            \
+	}
+#define BSTREAM_TO_UINT16(n, p)                                                                    \
+	{                                                                                          \
+		BYTES_TO_UINT16(n, p);                                                             \
+		p += 2;                                                                            \
+	}
 
+static void b91_bt_controller_thread();
 
-static struct b91_ctrl_t
-{
-	bool is_initialized;
+K_THREAD_DEFINE(ZephyrBleController, BLE_THREAD_STACK_SIZE, b91_bt_controller_thread, NULL, NULL,
+		NULL, BLE_THREAD_PRIORITY, 0, -1);
+
+static struct b91_ctrl_t {
 	b91_bt_host_callback_t callbacks;
 } b91_ctrl;
 
 /**
  * @brief    RF driver interrupt handler
  */
-_attribute_ram_code_ void rf_irq_handler(void)
-{
-	blc_sdk_irq_handler();
-}
+_attribute_ram_code_ void rf_irq_handler(void) { blc_sdk_irq_handler(); }
 
 /**
  * @brief    System Timer interrupt handler
  */
-_attribute_ram_code_ void stimer_irq_handler(void)
-{
-	blc_sdk_irq_handler();
-}
+_attribute_ram_code_ void stimer_irq_handler(void) { blc_sdk_irq_handler(); }
 
 /**
  * @brief    BLE Controller HCI Tx callback implementation
@@ -65,22 +67,19 @@ _attribute_ram_code_ void stimer_irq_handler(void)
 static int b91_bt_hci_tx_handler(void)
 {
 	/* check for data available */
-	if(bltHci_txfifo.wptr == bltHci_txfifo.rptr)
-	{
+	if (bltHci_txfifo.wptr == bltHci_txfifo.rptr) {
 		return 0;
 	}
 
 	/* Get HCI data */
 	u8 *p = bltHci_txfifo.p + (bltHci_txfifo.rptr & bltHci_txfifo.mask) * bltHci_txfifo.size;
-	if(p)
-	{
+	if (p) {
 		u32 len;
 		BSTREAM_TO_UINT16(len, p);
 		bltHci_txfifo.rptr++;
 
 		/* Send data to the host */
-		if(b91_ctrl.callbacks.host_read_packet)
-		{
+		if (b91_ctrl.callbacks.host_read_packet) {
 			b91_ctrl.callbacks.host_read_packet(p, len);
 		}
 	}
@@ -94,11 +93,9 @@ static int b91_bt_hci_tx_handler(void)
 static int b91_bt_hci_rx_handler(void)
 {
 	/* Check for data available */
-	if(bltHci_rxfifo.wptr == bltHci_rxfifo.rptr)
-	{
+	if (bltHci_rxfifo.wptr == bltHci_rxfifo.rptr) {
 		/* No data to process, send host_send_available message to the host */
-		if(b91_ctrl.callbacks.host_send_available)
-		{
+		if (b91_ctrl.callbacks.host_send_available) {
 			b91_ctrl.callbacks.host_send_available();
 		}
 
@@ -107,8 +104,7 @@ static int b91_bt_hci_rx_handler(void)
 
 	/* Get HCI data */
 	u8 *p = bltHci_rxfifo.p + (bltHci_rxfifo.rptr & bltHci_rxfifo.mask) * bltHci_rxfifo.size;
-	if(p)
-	{
+	if (p) {
 		/* Send data to the controller */
 		blc_hci_handler(&p[0], 0);
 		bltHci_rxfifo.rptr++;
@@ -122,14 +118,11 @@ static int b91_bt_hci_rx_handler(void)
  */
 static void b91_bt_controller_thread()
 {
-	while(1)
-	{
-		if(b91_ctrl.is_initialized)
-		{
-			blc_sdk_main_loop();
-		}
-
-		k_msleep(BLE_THREAD_PERIOD_MS);
+	while (1) {
+		blc_sdk_main_loop();
+#ifndef CONFIG_PM
+		k_msleep(CONFIG_B91_BLE_CTRL_THREAD_PERIOD_MS);
+#endif /* !CONFIG_PM */
 	}
 }
 
@@ -161,13 +154,12 @@ int b91_bt_controller_init()
 
 	/* Init BLE Controller stack */
 	status = b91_bt_blc_init(b91_bt_hci_rx_handler, b91_bt_hci_tx_handler);
-	if(status != INIT_OK)
-	{
+	if (status != INIT_OK) {
 		return status;
 	}
 
-	/* Init controller data */
-	b91_ctrl.is_initialized = TRUE;
+	/* Start BLE thread */
+	k_thread_start(ZephyrBleController);
 
 	return status;
 }
@@ -193,6 +185,3 @@ void b91_bt_host_callback_register(const b91_bt_host_callback_t *pcb)
 	b91_ctrl.callbacks.host_read_packet = pcb->host_read_packet;
 	b91_ctrl.callbacks.host_send_available = pcb->host_send_available;
 }
-
-K_THREAD_DEFINE(ZephyrBleController, BLE_THREAD_STACK_SIZE, b91_bt_controller_thread, 
-                NULL, NULL, NULL, BLE_THREAD_PRIORITY, 0, 0);
