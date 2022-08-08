@@ -16,7 +16,7 @@
  *
  *****************************************************************************/
 
-#include <zephyr.h>
+#include <zephyr/zephyr.h>
 #undef irq_enable
 #undef irq_disable
 #undef ARRAY_SIZE
