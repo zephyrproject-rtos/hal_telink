@@ -15,6 +15,17 @@ zephyr_include_directories(drivers/B91)
 if (NOT CONFIG_PM AND NOT CONFIG_BT_B91)
 zephyr_library_sources(drivers/B91/sys.c)
 endif() # no PM and no BLE external dependency
+
+# MbedTLS HW accelerated alternative
+
+if(CONFIG_MBEDTLS)
+add_subdirectory( crypto/mbedtls )
+endif() # CONFIG_MBEDTLS
+
+# ***
+
+# soc.c reference sources
+zephyr_library_sources_ifndef(CONFIG_BT_B91 drivers/B91/sys.c)
 zephyr_library_sources(drivers/B91/pm.c)
 zephyr_library_sources(drivers/B91/clock.c)
 zephyr_library_sources(drivers/B91/analog.c)
