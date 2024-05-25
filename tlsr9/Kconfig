@@ -1,4 +1,6 @@
 # Copyright (c) 2022 Telink Semiconductor
 # SPDX-License-Identifier: Apache-2.0
 
-rsource "ble/vendor/controller/Kconfig"
+# Disabled, since the code doesn't build and the driver has been removed
+# from the Zephyr main tree.
+#rsource "ble/vendor/controller/Kconfig"
